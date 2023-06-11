@@ -1,135 +1,82 @@
-alfabet = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z"]
-'''
-import networkx as nx
-
-grafo = nx.DiGraph()
-
-alfabet = ["A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z"]
-def pedirDatos():
-    name = input('ingresa el nombre del programa: \n')
-    NumNodes = int(input("ingrese el número de nodos: \n"))
-    return name, NumNodes
-
-def crearTabla(NumNodes):
-    nodos = []
-    matriz = []
-    for i in range(NumNodes):
-        fila = []
-        nodos.append(alfabet[i])
-        for j in range(NumNodes):
-            valor = int(input(f"Ingresa el valor que va de {alfabet[i]} a {alfabet[j]}:  "))
-            fila.append(valor) 
-        matriz.append(fila)         
-    return nodos, matriz
-
-def aristas(NumNodes):
-    for i in range(NumNodes):
-        grafo.add_nodes_from(alfabet[i])
-        for j in range(NumNodes):
-            valor = int(input(f"Ingresa el valor que va de {alfabet[i]} a {alfabet[j]}:  "))
-            grafo.add_edge(alfabet[i], alfabet[j], capacity=valor)
-                 
-
-
-
-
-nombre, node = pedirDatos()
-crearTabla(node)
-nodoEntrada = input("Ingrese el nodo de entrada: ")
-nodoSalida = input("ingrese el nodo de Salida: ")
-
-from networkx.algorithms.flow import shortest_augmenting_path
-
-resultado_valor, grafo_final=nx.maximum_flow(grafo,nodoEntrada,nodoSalida,flow_func=shortest_augmenting_path)
-print("resultado: ",resultado_valor)
-print("=======")
-print("camino final: ",grafo_final)
-'''
 import networkx as nx
 import matplotlib.pyplot as plt
+from collections import defaultdict
 
-class DisjointSet:
-    def __init__(self, n):
-        self.parent = list(range(n))
-        self.rank = [0] * n
+class Graph:
+    def __init__(self, graph):
+        self.graph = graph
+        self.rows = len(graph)
 
-    def find(self, x):
-        if self.parent[x] != x:
-            self.parent[x] = self.find(self.parent[x])
-        return self.parent[x]
+    def bfs(self, s, t, parent):
+        visited = [False] * self.rows
+        queue = []
+        queue.append(s)
+        visited[s] = True
 
-    def union(self, x, y):
-        x_root = self.find(x)
-        y_root = self.find(y)
+        while queue:
+            u = queue.pop(0)
+            for ind, val in enumerate(self.graph[u]):
+                if not visited[ind] and val > 0:
+                    queue.append(ind)
+                    visited[ind] = True
+                    parent[ind] = u
+                    if ind == t:
+                        return True
 
-        if self.rank[x_root] < self.rank[y_root]:
-            self.parent[x_root] = y_root
-        elif self.rank[x_root] > self.rank[y_root]:
-            self.parent[y_root] = x_root
-        else:
-            self.parent[y_root] = x_root
-            self.rank[x_root] += 1
+        return False
 
-def kruskal(graph):
-    num_vertices = len(graph)
-    disjoint_set = DisjointSet(num_vertices)
-    minimum_spanning_tree = []
+    def ford_fulkerson(self, source, sink):
+        parent = [-1] * self.rows
+        max_flow = 0
 
-    edges = []
-    for i in range(num_vertices):
-        for j in range(i + 1, num_vertices):
-            if graph[i][j] != 0:
-                edges.append((i, j, graph[i][j]))
+        while self.bfs(source, sink, parent):
+            path_flow = float("Inf")
+            s = sink
+            while s != source:
+                path_flow = min(path_flow, self.graph[parent[s]][s])
+                s = parent[s]
 
-    edges.sort(key=lambda x: x[2])
+            max_flow += path_flow
+            v = sink
+            while v != source:
+                u = parent[v]
+                self.graph[u][v] -= path_flow
+                self.graph[v][u] += path_flow
+                v = parent[v]
 
-    for edge in edges:
-        source, destination, weight = edge
-        if disjoint_set.find(source) != disjoint_set.find(destination):
-            disjoint_set.union(source, destination)
-            minimum_spanning_tree.append(edge)
+        return max_flow
 
-    return minimum_spanning_tree
+    def display_graph(self):
+        print("Final Residual Graph:")
+        for i in range(self.rows):
+            for j in range(self.rows):
+                print(self.graph[i][j], end=" ")
+            print()
 
-def pedirDatos():
-    name = input('ingresa el nombre del programa: \n')
-    NumNodes = int(input("ingrese el número de nodos: \n"))
-    return name, NumNodes
+        G = nx.DiGraph()
+        for i in range(self.rows):
+            for j in range(self.rows):
+                if self.graph[i][j] > 0:
+                    G.add_edge(i, j, capacity=self.graph[i][j])
 
-def crearTabla(NumNodes):
-    nodos = []
-    matriz = []
-    for i in range(NumNodes):
-        fila = []
-        nodos.append(alfabet[i])
-        for j in range(NumNodes):
-            valor = int(input(f"Ingresa el valor que va de {i+1} a {j+1}:  "))
-            fila.append(valor) 
-        matriz.append(fila)         
-    return matriz
-# Ejemplo de grafo
-nombre, NumNodes = pedirDatos()
-graph = crearTabla(NumNodes)
+        pos = nx.spring_layout(G)
+        labels = nx.get_edge_attributes(G, 'capacity')
+        nx.draw(G, pos, with_labels=True, node_color='lightblue', node_size=500)
+        nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
+        plt.title("Residual Graph")
+        plt.show()
 
+# User input for the graph
+graph = []
+vertices = int(input("Enter the number of vertices: "))
+for i in range(vertices):
+    row = list(map(int, input(f"Enter the capacities for edges from vertex {i}: ").split()))
+    graph.append(row)
 
-# Calcula el árbol de expansión mínima
-minimum_spanning_tree = kruskal(graph)
+source = int(input("Enter the source vertex: "))
+sink = int(input("Enter the sink vertex: "))
 
-# Crea el grafo con NetworkX
-G = nx.Graph()
-for edge in minimum_spanning_tree:
-    source, destination, weight = edge
-    G.add_edge(source, destination, weight=weight)
-#imprime el valor:
-print(minimum_spanning_tree)
-valor_maximo = 0
-for i in minimum_spanning_tree:
-    valor_maximo = i[2]
-print(f"El valor máximo de flujo es: {valor_maximo}")
-# Grafica el árbol de expansión mínima
-pos = nx.spring_layout(G)
-labels = nx.get_edge_attributes(G, 'weight')
-nx.draw_networkx(G, pos)
-nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
-plt.axis('off')
-plt.show()
+g = Graph(graph)
+max_flow = g.ford_fulkerson(source, sink)
+print("The maximum flow in the graph is:", max_flow)
+g.display_graph()
